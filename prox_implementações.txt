@@ -1,0 +1,4 @@
+- [ x ] Implementar sistema de autenticação
+- [ ] Implementar logs e auditoria
+- [ ] Configurar notificações para alertas de consultas ao cliente
+- [ ] Deixar a tabela de prontuários obrigatória antes de criar uma nova consulta, exame e prescrição
