@@ -1,4 +1,4 @@
-<h1 align="center">VidaPlus - Sistema de gestão hospitalar</h1>
+<h1 align="center">API VidaPlus - Sistema de gestão hospitalar</h1>
 
 ## 📑 Tabela de conteúdos
 
