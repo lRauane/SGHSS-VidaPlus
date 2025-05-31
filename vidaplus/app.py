@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from vidaplus.logging_config import setup_logging
+# from vidaplus.logging_config import setup_logging
 
 from vidaplus.api.endpoints import (
     auth,
@@ -12,7 +12,7 @@ from vidaplus.api.endpoints import (
     leitos,
 )
 
-setup_logging()
+# setup_logging()
 
 app = FastAPI(
     title='VidaPlus API',
