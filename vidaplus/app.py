@@ -10,6 +10,7 @@ from vidaplus.api.endpoints import (
     exame,
     prontuario,
     leitos,
+    estoque,
 )
 
 # setup_logging()
@@ -34,4 +35,5 @@ app.include_router(
     prontuario.router, prefix='/prontuario', tags=['Prontuários']
 )
 app.include_router(leitos.router, prefix='/leitos', tags=['Leitos'])
+app.include_router(estoque.router, prefix='/estoque', tags=['Estoque'])
 app.include_router(auth.router, prefix='/auth/token', tags=['Tokens'])
