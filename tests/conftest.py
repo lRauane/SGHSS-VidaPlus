@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +12,8 @@ from vidaplus.database import get_session
 from vidaplus.models.models import (
     PacienteUser,
     ProfissionalUser,
-    AdminUser,
+    Consulta,
+    Prontuario,
     table_registry,
 )
 from vidaplus.security import get_password_hash
@@ -154,25 +155,6 @@ def profissional_user(session):
 
     return user
 
-@pytest.fixture
-def admin_user(session):
-    senha = 'admin123'
-    user = AdminUser(
-        nome='Admin',
-        email='admin@vidaplus.com',
-        senha=get_password_hash(senha),
-        telefone='123456789',
-        tipo='ADMIN',
-        is_active=True,
-        is_superuser=True,
-    )
-
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    user.clean_password = senha
-    return user
-
 
 @pytest.fixture
 def token_pacient(client, paciente_user):
@@ -197,27 +179,35 @@ def token_profissional(client, profissional_user):
     )
     return response.json()['access_token']
 
-# @pytest.fixture
-# def token_admin(client, admin_user):
-#     response = client.post(
-#         '/auth/token',
-#         data={
-#             'username': admin_user.email,
-#             'password': admin_user.clean_password,
-#         },
-#     )
-#     return response.json()['access_token']
-
 
 @pytest.fixture
-def nova_consulta(paciente_user, profissional_user):
-    return {
-        'data': '2025-05-03',
-        'hora': '14:00',
-        'paciente_id': paciente_user.id,
-        'profissional_id': profissional_user.id,
-        'status': 'Agendada',
-        'tipoConsulta': 'Teleconsulta',
-        'link': 'https://example.com/nova',
-        'observacao': 'Nova consulta de teste',
-    }
+def prontuario_user(paciente_user, session):
+    prontuario = Prontuario(
+        paciente_id=paciente_user.id,
+    )
+
+    session.add(prontuario)
+    session.commit()
+    session.refresh(prontuario)
+    return prontuario
+    
+
+@pytest.fixture
+def nova_consulta(paciente_user, profissional_user, prontuario_user, session):
+    consulta = Consulta(
+        data=date(2025, 4, 28),
+        hora=time(14, 0),
+        paciente_id=paciente_user.id,
+        profissional_id=profissional_user.id,
+        prontuario_id=prontuario_user.id,
+        status="AGENDADA",
+        tipoConsulta="PRESENCIAL",
+        link="https://example.com/consulta",
+        observacao="Observação da consulta"
+    )
+
+    session.add(consulta)
+    session.commit()
+    session.refresh(consulta)
+
+    return consulta
