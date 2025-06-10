@@ -27,6 +27,7 @@ A **API VidaPlus** é uma solução desenvolvida para gerenciar hospitais e serv
 - **Prescrições:** Registro e controle de prescrições médicas.
 - **Exames:** Solicitação, acompanhamento e resultados de exames.
 - **Leitos:** Gerenciamento de ocupação e disponibilidade de leitos hospitalares.
+- **Estoque:** Gerenciamento de toda a parte de estoques hospitalares.
 
 ### Autenticação <a name="autenticacao"></a>
 A API utiliza autenticação baseada em JWT (JSON Web Token). Para acessar endpoints protegidos, é necessário obter um token de acesso realizando login com credenciais válidas.
@@ -43,6 +44,7 @@ Os endpoints estão organizados por recurso, seguindo o padrão REST:
 - `/prescricoes/`
 - `/exame/`
 - `/leitos/`
+- `/Estoque/`
 
 Cada endpoint suporta operações de **CRUD** (Create, Read, Update, Delete), com validação de permissões e regras de negócio.
 
