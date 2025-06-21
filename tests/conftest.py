@@ -12,6 +12,7 @@ from vidaplus.database import get_session
 from vidaplus.models.models import (
     PacienteUser,
     ProfissionalUser,
+    AdminUser,
     Consulta,
     Prontuario,
     table_registry,
@@ -157,6 +158,27 @@ def profissional_user(session):
 
 
 @pytest.fixture
+def admin_user(session):
+    senha = 'admin123'
+    user = AdminUser(
+        nome='Admin',
+        email='admin@vidaplus.com',
+        senha=get_password_hash(senha),
+        telefone='123456789',
+        tipo='ADMIN',
+        is_active=True,
+        is_superuser=True,
+    )
+
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+
+    user.clean_password = senha
+    return user
+
+
+@pytest.fixture
 def token_pacient(client, paciente_user):
     response = client.post(
         '/auth/token',
@@ -175,6 +197,18 @@ def token_profissional(client, profissional_user):
         data={
             'username': profissional_user.email,
             'password': profissional_user.clean_password,
+        },
+    )
+    return response.json()['access_token']
+
+
+@pytest.fixture
+def token_admin(client, admin_user):
+    response = client.post(
+        '/auth/token',
+        data={
+            'username': admin_user.email,
+            'password': admin_user.clean_password,
         },
     )
     return response.json()['access_token']

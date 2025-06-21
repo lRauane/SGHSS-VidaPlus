@@ -29,7 +29,7 @@ CurrentUser = Annotated[ProfissionalUser, Depends(get_current_user)]
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=ProfissionalUserPublic
 )
-def create_user(user: ProfissionalUserSchema, session: Session):
+def create_user(user: ProfissionalUserSchema, session: Session, current_user: CurrentUser):
     db_user = session.scalar(
         select(ProfissionalUser).where(
             (ProfissionalUser.email == user.email)
@@ -48,6 +48,12 @@ def create_user(user: ProfissionalUserSchema, session: Session):
                 status_code=HTTPStatus.CONFLICT,
                 detail='CRM/Coren already exists',
             )
+        
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail='Apenas usuários com permissão de administrador podem criar profissionais.',
+        )
 
     hashed_password = get_password_hash(user.senha)
 
@@ -73,22 +79,34 @@ def create_user(user: ProfissionalUserSchema, session: Session):
 
 
 @router.get('/', response_model=UserList)
-def get_users(session: Session, filter_users: Annotated[FilterPage, Query()]):
+def get_users(session: Session, filter_users: Annotated[FilterPage, Query()], current_user: CurrentUser):
     profissionais = session.scalars(
         select(ProfissionalUser)
         .where(ProfissionalUser.tipo == UserRole.PROFISSIONAL)
         .offset(filter_users.offset)
         .limit(filter_users.limit)
     ).all()
+
+    if not current_user.is_superuser:
+        profissionais = [
+            profissional for profissional in profissionais if profissional.id == current_user.id
+        ]
+
     return {'profissionais': profissionais}
 
 
 @router.get('/{user_id}', response_model=ProfissionalUserPublic)
-def get_user(user_id: int, session: Session):
+def get_user(user_id: int, session: Session, current_user: CurrentUser):
     user = session.get(ProfissionalUser, user_id)
     if not user:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail='User not found'
+        )
+
+    if not current_user.is_superuser and current_user.id != user.id:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail='Você não tem permissão para acessar este usuário',
         )
 
     return user

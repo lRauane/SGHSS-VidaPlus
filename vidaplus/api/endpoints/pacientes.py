@@ -29,7 +29,14 @@ CurrentUser = Annotated[PacienteUser, Depends(get_current_user)]
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=PacienteUserPublic
 )
-def create_user(user: PacienteUserSchema, session: Session):
+def create_user(user: PacienteUserSchema, session: Session, current_user: CurrentUser):
+    
+    if not current_user.is_superuser:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail='Apenas usuários com permissão de administrador podem criar pacientes.',
+        )
+    
     db_user = session.scalar(
         select(PacienteUser).where(
             (PacienteUser.email == user.email) | (PacienteUser.cpf == user.cpf)
@@ -77,22 +84,34 @@ def create_user(user: PacienteUserSchema, session: Session):
 
 
 @router.get('/', response_model=UserList)
-def get_users(session: Session, filter_users: Annotated[FilterPage, Query()]):
+def get_users(session: Session, filter_users: Annotated[FilterPage, Query()], current_user: CurrentUser):
     pacientes = session.scalars(
         select(PacienteUser)
         .where(PacienteUser.tipo == UserRole.PACIENTE)
         .offset(filter_users.offset)
         .limit(filter_users.limit)
     ).all()
+
+    if not current_user.is_superuser:
+        pacientes = [
+            paciente for paciente in pacientes if paciente.id == current_user.id
+        ]
+    
     return {'pacientes': pacientes}
 
 
 @router.get('/{user_id}', response_model=PacienteUserPublic)
-def get_user(user_id: int, session: Session):
+def get_user(user_id: int, session: Session, current_user: CurrentUser):
     user = session.get(PacienteUser, user_id)
     if not user:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail='User not found'
+        )
+    
+    if not current_user.is_superuser and current_user.id != user_id:
+        raise HTTPException(
+            status_code=HTTPStatus.FORBIDDEN,
+            detail='Você não tem permissão para acessar este usuário',
         )
 
     return user

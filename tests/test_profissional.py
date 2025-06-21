@@ -3,7 +3,7 @@ from http import HTTPStatus
 from vidaplus.schemas.profissional_schema import ProfissionalUserPublic
 
 
-def test_create_profissionais(client):
+def test_create_profissionais(client, token_admin):
     response = client.post(
         '/profissionais/',
         json={
@@ -19,11 +19,12 @@ def test_create_profissionais(client):
             'is_active': True,
             'is_superuser': False,
         },
+        headers={'Authorization': f'Bearer {token_admin}'},
     )
 
     assert response.status_code == HTTPStatus.CREATED
     assert response.json() == {
-        'id': 1,
+        'id': 2,
         'nome': 'Maria Oliveira',
         'email': 'maria@email.com',
         'telefone': '456789123',
@@ -37,30 +38,30 @@ def test_create_profissionais(client):
     }
 
 
-def test_read_profissionais(client):
-    response = client.get('/profissionais/')
+def test_read_profissionais(client, token_admin):
+    response = client.get('/profissionais/', headers={'Authorization': f'Bearer {token_admin}'})
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'profissionais': []}
 
 
-def test_read_profissionais_with_profissionais(client, profissional_user):
+def test_read_profissionais_with_profissionais(client, profissional_user, token_admin):
     user_schema = ProfissionalUserPublic.model_validate(
         profissional_user
     ).model_dump(mode='json')
 
-    response = client.get('/profissionais/')
+    response = client.get('/profissionais/', headers={'Authorization': f'Bearer {token_admin}'})
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'profissionais': [user_schema]}
 
 
-def test_get_profissional_not_found(client):
-    response = client.get('/profissionais/999')
+def test_get_profissional_not_found(client, token_profissional):
+    response = client.get('/profissionais/999', headers={'Authorization': f'Bearer {token_profissional}'})
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'User not found'}
 
 
-def test_update_integrity_error(client, profissional_user, token_profissional):
+def test_update_integrity_error(client, profissional_user, token_profissional, token_admin):
     client.post(
         '/profissionais/',
         json={
@@ -76,6 +77,7 @@ def test_update_integrity_error(client, profissional_user, token_profissional):
             'is_active': True,
             'is_superuser': False,
         },
+        headers={'Authorization': f'Bearer {token_admin}'},
     )
 
     response_update = client.put(

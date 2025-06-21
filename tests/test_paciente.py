@@ -3,7 +3,7 @@ from http import HTTPStatus
 from vidaplus.schemas.paciente_schema import PacienteUserPublic
 
 
-def test_create_paciente(client):
+def test_create_paciente(client, token_admin):
     response = client.post(
         '/pacientes/',
         json={
@@ -24,11 +24,12 @@ def test_create_paciente(client):
             'is_active': True,
             'is_superuser': False,
         },
+        headers={'Authorization': f'Bearer {token_admin}'},
     )
 
     assert response.status_code == HTTPStatus.CREATED
     assert response.json() == {
-        'id': 1,
+        'id': 2,
         'nome': 'Alice Silva',
         'email': 'alice@example.com',
         'telefone': '123456789',
@@ -47,30 +48,30 @@ def test_create_paciente(client):
     }
 
 
-def test_read_paciente(client):
-    response = client.get('/pacientes/')
+def test_read_paciente(client, token_admin):
+    response = client.get('/pacientes/', headers={'Authorization': f'Bearer {token_admin}'})
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'pacientes': []}
 
 
-def test_read_pacientes_with_pacientes(client, paciente_user):
+def test_read_pacientes_with_pacientes(client, paciente_user, token_admin):
     user_schema = PacienteUserPublic.model_validate(paciente_user).model_dump(
         mode='json'
     )
 
-    response = client.get('/pacientes/')
+    response = client.get('/pacientes/', headers={'Authorization': f'Bearer {token_admin}'})
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'pacientes': [user_schema]}
 
 
-def test_get_paciente_not_found(client):
-    response = client.get('/pacientes/999')
+def test_get_paciente_not_found(client, token_pacient):
+    response = client.get('/pacientes/999', headers={'Authorization': f'Bearer {token_pacient}'})
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'User not found'}
 
 
-def test_update_integrity_error(client, paciente_user, token_pacient):
+def test_update_integrity_error(client, paciente_user, token_pacient, token_admin):
     client.post(
         '/pacientes',
         json={
@@ -91,6 +92,7 @@ def test_update_integrity_error(client, paciente_user, token_pacient):
             'is_active': True,
             'is_superuser': False,
         },
+        headers={'Authorization': f'Bearer {token_admin}'},
     )
 
     response_update = client.put(
