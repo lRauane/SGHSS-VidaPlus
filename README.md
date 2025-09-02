@@ -142,4 +142,4 @@ O projeto foi desenvolvido com as seguintes tecnologias:
 
 ## 🦸 Autor <a name="autor"></a>
 
-Desenvolvido por **[Rauane Lima](https://github.com/lrauane)** 🚀
+Desenvolvido por **[Rauane Lima](https://github.com/lrauane)**  🚀
