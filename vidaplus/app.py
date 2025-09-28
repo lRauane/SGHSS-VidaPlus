@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from vidaplus.logging_config import setup_logging
+# from vidaplus.logging_config import setup_logging
 import logging
 
 from vidaplus.api.endpoints import (
