@@ -15,7 +15,7 @@ from vidaplus.api.endpoints import (
 )
 
 logger = logging.getLogger(__name__)
-setup_logging()
+# setup_logging()
 
 app = FastAPI(
     title='VidaPlus API',
