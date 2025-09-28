@@ -1,10 +1,10 @@
-import logging
 from http import HTTPStatus
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 from typing import Annotated
 from vidaplus.database import get_session
+from vidaplus.logger import get_logger
 from vidaplus.schemas.consulta_schema import (
     ConsultaSchema,
     ConsultaSchemaPublic,
@@ -26,14 +26,14 @@ router = APIRouter()
 Session = Annotated[Session, Depends(get_session)]
 CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
 
-logger = logging.getLogger("vidaplus")
-
+logger = get_logger("consultas")
 
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=ConsultaSchemaPublic
 )
 def create_consulta(
-    consulta: ConsultaSchema, session: Session, current_user: CurrentUser
+    consulta: ConsultaSchema, session: Session, current_user: CurrentUser,
+    request=Request
 ):
     paciente_id = session.scalar(
         select(PacienteUser).where(PacienteUser.id == consulta.paciente_id)
@@ -48,27 +48,41 @@ def create_consulta(
     )
 
     if not profissional_id:
-        logger.error("Profissional não encontrado: %s", consulta.profissional_id)
+        logger.resource_not_found(
+            resource_type="profissional",
+            resource_id=str(consulta.profissional_id),
+            user_id=str(current_user.id),
+            operation="create_consulta"
+        )
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
             detail='Profissional não encontrado.',
         )
 
     if not paciente_id:
-        logger.error("Paciente não encontrado: %s", consulta.paciente_id)
+        logger.resource_not_found(
+            resource_type="paciente", 
+            resource_id=str(consulta.paciente_id),
+            user_id=str(current_user.id),
+            operation="create_consulta"
+        )
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
             detail='Paciente não encontrado.',
         )
     
     if not prontuario_id:
-        logger.error(
-            "Prontuário não encontrado: %s", consulta.prontuario_id
+        logger.resource_not_found(
+            resource_type="prontuario",
+            resource_id=str(consulta.prontuario_id),
+            user_id=str(current_user.id),
+            operation="create_consulta"
         )
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
             detail='Prontuário não encontrado.',
         )
+
 
     db_consulta = session.scalar(
         select(Consulta).where(
@@ -80,11 +94,19 @@ def create_consulta(
     )
 
     if db_consulta:
-        detail='Já existe uma consulta agendada para este paciente e profissional na mesma data e hora.'
+        detail = 'Já existe uma consulta agendada para este paciente e profissional na mesma data e hora.'
         
-        logger.error(
-            f"{detail}: %s", db_consulta.id
+        logger.business_conflict(
+            conflict_type="agendamento_duplicado",
+            details=detail,
+            user_id=str(current_user.id),
+            consulta_existente_id=str(db_consulta.id),
+            paciente_id=str(consulta.paciente_id),
+            profissional_id=str(consulta.profissional_id),
+            data_consulta=consulta.data.isoformat(),
+            hora_consulta=consulta.hora.isoformat()
         )
+        
         raise HTTPException(
             status_code=HTTPStatus.CONFLICT,
             detail=detail,
@@ -94,6 +116,12 @@ def create_consulta(
         not current_user.is_superuser
         and current_user.id != consulta.profissional_id
     ):
+        logger.permission_denied(
+            operation="create_consulta",
+            resource_id=f"profissional:{consulta.profissional_id}",
+            user_id=str(current_user.id),
+            reason="usuário_nao_eh_profissional_da_consulta"
+        )
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN,
             detail='Você não tem permissão para criar esta consulta',
@@ -114,7 +142,15 @@ def create_consulta(
     session.add(db_consulta)
     session.commit()
     session.refresh(db_consulta)
-    logger.info("Consulta criada com sucesso: %s", db_consulta.id)
+    
+    logger.operation_success(
+        operation="create_consulta",
+        resource_id=str(db_consulta.id),
+        user_id=str(current_user.id),
+        paciente_id=str(consulta.paciente_id),
+        profissional_id=str(consulta.profissional_id)
+    )
+
     return db_consulta
 
 

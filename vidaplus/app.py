@@ -1,5 +1,6 @@
 from fastapi import FastAPI
-# from vidaplus.logging_config import setup_logging
+from vidaplus.logging_config import setup_logging
+import logging
 
 from vidaplus.api.endpoints import (
     auth,
@@ -13,7 +14,8 @@ from vidaplus.api.endpoints import (
     estoque,
 )
 
-# setup_logging()
+logger = logging.getLogger(__name__)
+setup_logging()
 
 app = FastAPI(
     title='VidaPlus API',
@@ -21,6 +23,28 @@ app = FastAPI(
     version='0.1.0',
     openapi_url='/api/v1/openapi.json',
 )
+
+# midleware de loggins
+# @app.middleware('http')
+# async def log_requests(request, call_next):
+#     start_time = time.time()
+
+#     logger.info(f'Início da requisição: {request.method} {request.url}')
+#     logger.debug(f'Headers: {request.headers}')
+
+#     response = await call_next(request)
+
+#     process_time = time.time() - start_time
+
+#     logger.info(
+#         f'Final da requisição: {request.method} {request.url} - Status code: {response.status_code} - Tempo de processamento: {process_time:.4f} segundos'
+#     )
+
+#     response.headers['X-Process-Time'] = str(process_time)
+
+#     return response
+
+
 
 app.include_router(pacientes.router, prefix='/pacientes', tags=['Pacientes'])
 app.include_router(
