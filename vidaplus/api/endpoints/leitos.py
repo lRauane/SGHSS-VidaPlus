@@ -1,6 +1,6 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from vidaplus.models.models import Leito, BaseUser
 from vidaplus.schemas.leitos_schema import (
     LeitosSchema,
@@ -16,7 +16,7 @@ from vidaplus.database import get_session
 from vidaplus.schemas.schemas import FilterPage
 
 router = APIRouter()
-Session = Annotated[Session, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
 
 @router.post(
@@ -24,12 +24,12 @@ CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
     status_code=HTTPStatus.CREATED,
     response_model=LeitosSchemaPublic,
 )
-def create_leito(
+async def create_leito(
     leito: LeitosSchema,
     session: Session,
     current_user: CurrentUser,
 ):
-    db_leito = session.scalar(
+    db_leito = await session.scalar(
         select(Leito).where(Leito.numero_leito == leito.numero_leito)
     )
 
@@ -58,8 +58,8 @@ def create_leito(
         status=leito.status,
     )
     session.add(db_leito)
-    session.commit()
-    session.refresh(db_leito)
+    await session.commit()
+    await session.refresh(db_leito)
 
     return db_leito
 
@@ -69,16 +69,17 @@ def create_leito(
     status_code=HTTPStatus.OK,
     response_model=LeitosList,
 )
-def get_leitos(
+async def get_leitos(
     session: Session,
     filter_leitos: Annotated[FilterPage, Query()],
     current_user: CurrentUser,
 ):
-    db_leitos = session.scalars(
+    db_leitos = await session.scalars(
         select(Leito)
         .offset(filter_leitos.offset)
         .limit(filter_leitos.limit)
-    ).all()
+    )
+    db_leitos = db_leitos.all()
 
     if not current_user.is_superuser:
         db_leitos = [
@@ -94,12 +95,12 @@ def get_leitos(
     '/{leito_id}',
     response_model=LeitosSchemaPublic,
 )
-def get_leito(
+async def get_leito(
     leito_id: int,
     session: Session,
     current_user: CurrentUser,
 ):
-    db_leito = session.get(Leito, leito_id)
+    db_leito = await session.get(Leito, leito_id)
 
     if not db_leito:
         raise HTTPException(
@@ -120,13 +121,13 @@ def get_leito(
     '/{leito_id}',
     response_model=LeitosSchemaPublic,
 )
-def update_leito(
+async def update_leito(
     leito_id: int,
     leito: LeitosSchema,
     session: Session,
     current_user: CurrentUser,
 ):
-    db_leito = session.get(Leito, leito_id)
+    db_leito = await session.get(Leito, leito_id)
 
     if not db_leito:
         raise HTTPException(
@@ -151,8 +152,8 @@ def update_leito(
     db_leito.tipo = leito.tipo
     db_leito.status = leito.status
 
-    session.commit()
-    session.refresh(db_leito)
+    await session.commit()
+    await session.refresh(db_leito)
 
     return db_leito
 
@@ -160,12 +161,12 @@ def update_leito(
 @router.delete(
     '/{leito_id}',
 )
-def delete_leito(
+async def delete_leito(
     leito_id: int,
     session: Session,
     current_user: CurrentUser,
 ):
-    db_leito = session.get(Leito, leito_id)
+    db_leito = await session.get(Leito, leito_id)
 
     if not db_leito:
         raise HTTPException(
@@ -179,7 +180,7 @@ def delete_leito(
             detail='Você não tem permissão para acessar este leito.',
         )
 
-    session.delete(db_leito)
-    session.commit()
+    await session.delete(db_leito)
+    await session.commit()
 
     return {'message': 'Leito deletado com sucesso.'}

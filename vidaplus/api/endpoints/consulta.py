@@ -1,6 +1,10 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+<<<<<<< Updated upstream
 from sqlalchemy.orm import Session
+=======
+from sqlalchemy.ext.asyncio import AsyncSession
+>>>>>>> Stashed changes
 from sqlalchemy import select
 from typing import Annotated
 from vidaplus.database import get_session
@@ -23,7 +27,7 @@ from vidaplus.models.models import (
 )
 
 router = APIRouter()
-Session = Annotated[Session, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
 
 logger = get_logger("consultas")
@@ -31,19 +35,23 @@ logger = get_logger("consultas")
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=ConsultaSchemaPublic
 )
+<<<<<<< Updated upstream
 def create_consulta(
+=======
+async def create_consulta(
+>>>>>>> Stashed changes
     consulta: ConsultaSchema, session: Session, current_user: CurrentUser,
     request=Request
 ):
-    paciente_id = session.scalar(
+    paciente_id = await session.scalar(
         select(PacienteUser).where(PacienteUser.id == consulta.paciente_id)
     )
-    profissional_id = session.scalar(
+    profissional_id = await session.scalar(
         select(ProfissionalUser).where(
             ProfissionalUser.id == consulta.profissional_id,
         )
     )
-    prontuario_id = session.scalar(
+    prontuario_id = await session.scalar(
         select(Prontuario).where(Prontuario.id == consulta.prontuario_id)
     )
 
@@ -84,7 +92,11 @@ def create_consulta(
         )
 
 
+<<<<<<< Updated upstream
     db_consulta = session.scalar(
+=======
+    db_consulta = await session.scalar(
+>>>>>>> Stashed changes
         select(Consulta).where(
             (Consulta.data == consulta.data)
             & (Consulta.hora == consulta.hora)
@@ -140,8 +152,13 @@ def create_consulta(
     )
 
     session.add(db_consulta)
+<<<<<<< Updated upstream
     session.commit()
     session.refresh(db_consulta)
+=======
+    await session.commit()
+    await session.refresh(db_consulta)
+>>>>>>> Stashed changes
     
     logger.operation_success(
         operation="create_consulta",
@@ -155,17 +172,18 @@ def create_consulta(
 
 
 @router.get('/', response_model=ConsultaList)
-def get_consultas(
+async def get_consultas(
     session: Session,
     filter_consultas: Annotated[FilterPage, Query()],
     current_user: CurrentUser,
 ):
-    db_consultas = session.scalars(
+    db_consultas = await session.scalars(
         select(Consulta)
         .order_by(Consulta.data.desc())
         .offset(filter_consultas.offset)
         .limit(filter_consultas.limit)
-    ).all()
+    )
+    db_consultas = db_consultas.all()
 
     if not current_user.is_superuser:
         db_consultas = [
@@ -179,10 +197,10 @@ def get_consultas(
 
 
 @router.get('/{consulta_id}', response_model=ConsultaSchemaPublic)
-def get_consulta(
+async def get_consulta(
     consulta_id: int, session: Session, current_user: CurrentUser
 ):
-    db_consulta = session.get(Consulta, consulta_id)
+    db_consulta = await session.get(Consulta, consulta_id)
     if not db_consulta:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
@@ -203,21 +221,21 @@ def get_consulta(
 
 # outros profissionais estão editando consultas de outros profissionais, ajustar
 @router.put('/{consulta_id}', response_model=ConsultaSchemaPublic)
-def update_consulta(
+async def update_consulta(
     consulta_id: int,
     consulta: ConsultaSchema,
     session: Session,
     current_user: CurrentUser,
 ):
-    paciente_id = session.scalar(
+    paciente_id = await session.scalar(
         select(PacienteUser).where(PacienteUser.id == consulta.paciente_id)
     )
-    profissional_id = session.scalar(
+    profissional_id = await session.scalar(
         select(ProfissionalUser).where(
             ProfissionalUser.id == consulta.profissional_id,
         )
     )
-    prontuario_id = session.scalar(
+    prontuario_id = await session.scalar(
         select(Prontuario).where(Prontuario.id == consulta.prontuario_id)
     )
 
@@ -239,7 +257,7 @@ def update_consulta(
             detail='Prontuário não encontrado.',
         )
 
-    db_consulta = session.get(Consulta, consulta_id)
+    db_consulta = await session.get(Consulta, consulta_id)
     if not db_consulta:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
@@ -266,17 +284,17 @@ def update_consulta(
     db_consulta.link = consulta.link
     db_consulta.observacao = consulta.observacao
 
-    session.commit()
-    session.refresh(db_consulta)
+    await session.commit()
+    await session.refresh(db_consulta)
 
     return db_consulta
 
 
 @router.delete('/{consulta_id}')
-def delete_consulta(
+async def delete_consulta(
     consulta_id: int, session: Session, current_user: CurrentUser
 ):
-    db_consulta = session.get(Consulta, consulta_id)
+    db_consulta = await session.get(Consulta, consulta_id)
     if not db_consulta:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
@@ -292,7 +310,7 @@ def delete_consulta(
             detail='Você não tem permissão para deletar esta consulta',
         )
 
-    session.delete(db_consulta)
-    session.commit()
+    await session.delete(db_consulta)
+    await session.commit()
 
     return {'message': 'Consulta excluída com sucesso.'}

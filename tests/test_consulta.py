@@ -1,9 +1,11 @@
 from http import HTTPStatus
+import pytest
 # from vidaplus.schemas.consulta_schema import ConsultaSchemaPublic
 
 
-def test_create_consulta(client, token_profissional, profissional_user, paciente_user, prontuario_user):
-    response = client.post(
+@pytest.mark.asyncio
+async def test_create_consulta(client, token_profissional, profissional_user, paciente_user, prontuario_user):
+    response = await client.post(
         '/consultas/',
         json={
             'data': "2025-04-28",
@@ -31,11 +33,12 @@ def test_create_consulta(client, token_profissional, profissional_user, paciente
         'observacao': "Consulta de rotina",
     }
 
-def test_create_consulta_with_invalid_profissional(client, nova_consulta, token_profissional, prontuario_user, paciente_user):
+@pytest.mark.asyncio
+async def test_create_consulta_with_invalid_profissional(client, nova_consulta, token_profissional, prontuario_user, paciente_user):
     headers = {'Authorization': f'Bearer {token_profissional}'}
     nova_consulta.profissional_id = 99999
 
-    response = client.post(
+    response = await client.post(
         '/consultas/',
         json={
             "data": "2025-04-28",
@@ -55,11 +58,12 @@ def test_create_consulta_with_invalid_profissional(client, nova_consulta, token_
     assert response.json() == {'detail': 'Profissional não encontrado.'}
 
 
-def test_create_consulta_with_invalid_paciente(client, nova_consulta, token_profissional, profissional_user, prontuario_user, paciente_user):
+@pytest.mark.asyncio
+async def test_create_consulta_with_invalid_paciente(client, nova_consulta, token_profissional, profissional_user, prontuario_user, paciente_user):
     headers = {'Authorization': f'Bearer {token_profissional}'}
     nova_consulta.paciente_id = 99999
 
-    response = client.post(
+    response = await client.post(
         '/consultas/',
         json={
             "data": "2025-04-28",
@@ -78,15 +82,17 @@ def test_create_consulta_with_invalid_paciente(client, nova_consulta, token_prof
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'Paciente não encontrado.'}
 
-def test_get_consultas(client, token_profissional):
+@pytest.mark.asyncio
+async def test_get_consultas(client, token_profissional):
     headers = {'Authorization': f'Bearer {token_profissional}'}
-    response = client.get('/consultas/', headers=headers)
+    response = await client.get('/consultas/', headers=headers)
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'consultas': []}
 
 
-def test_create_duplicate_consulta(client, token_profissional, profissional_user, paciente_user, prontuario_user):
-    response_1 = client.post(
+@pytest.mark.asyncio
+async def test_create_duplicate_consulta(client, token_profissional, profissional_user, paciente_user, prontuario_user):
+    response_1 = await client.post(
         "/consultas/",
         json={
             "data": "2025-04-28",
@@ -103,7 +109,7 @@ def test_create_duplicate_consulta(client, token_profissional, profissional_user
     )
     assert response_1.status_code == HTTPStatus.CREATED
 
-    response_2 = client.post(
+    response_2 = await client.post(
         "/consultas/",
         json={
             "data": "2025-04-28",

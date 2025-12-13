@@ -1,6 +1,6 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Annotated
 from vidaplus.schemas.schemas import FilterPage
@@ -16,20 +16,20 @@ from vidaplus.schemas.exame_schema import (
 )
 
 router = APIRouter()
-Session = Annotated[Session, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
 
 
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=ExameSchemaPublic
 )
-def create_exame(
+async def create_exame(
     exame: ExameSchema, session: Session, current_user: CurrentUser
 ):
-    paciente_id = session.scalar(
+    paciente_id = await session.scalar(
         select(PacienteUser).where(PacienteUser.id == exame.paciente_id)
     )
-    prontuario_id = session.scalar(
+    prontuario_id = await session.scalar(
         select(Prontuario).where(Prontuario.id == exame.prontuario_id)
     )
 
@@ -45,7 +45,7 @@ def create_exame(
             detail='Prontuário não encontrado.',
         )
 
-    db_exame = session.scalar(
+    db_exame = await session.scalar(
         select(Exame).where(
             (Exame.data == exame.data)
             & (Exame.paciente_id == exame.paciente_id)
@@ -74,8 +74,8 @@ def create_exame(
         observacao=exame.observacao,
     )
     session.add(db_exame)
-    session.commit()
-    session.refresh(db_exame)
+    await session.commit()
+    await session.refresh(db_exame)
 
     return db_exame
 
@@ -85,17 +85,18 @@ def create_exame(
     status_code=HTTPStatus.OK,
     response_model=ExameList,
 )
-def get_exames(
+async def get_exames(
     session: Session,
     filter_exames: Annotated[FilterPage, Query()],
     current_user: CurrentUser,
 ):
-    db_exames = session.scalars(
+    db_exames = await session.scalars(
         select(Exame)
         .order_by(Exame.data.desc())
         .offset(filter_exames.offset)
         .limit(filter_exames.limit)
-    ).all()
+    )
+    db_exames = db_exames.all()
 
     if not current_user.is_superuser:
         db_exames = [
@@ -111,8 +112,8 @@ def get_exames(
     '/{exame_id}',
     response_model=ExameSchemaPublic,
 )
-def get_exame(exame_id: int, session: Session, current_user: CurrentUser):
-    db_exame = session.get(Exame, exame_id)
+async def get_exame(exame_id: int, session: Session, current_user: CurrentUser):
+    db_exame = await session.get(Exame, exame_id)
 
     if not db_exame:
         raise HTTPException(
@@ -133,16 +134,16 @@ def get_exame(exame_id: int, session: Session, current_user: CurrentUser):
 
 
 @router.put('/{exame_id}', response_model=ExameSchemaPublic)
-def update_exame(
+async def update_exame(
     exame_id: int,
     exame: ExameSchema,
     session: Session,
     current_user: CurrentUser,
 ):
-    pacient_id = session.scalar(
+    pacient_id = await session.scalar(
         select(PacienteUser).where(PacienteUser.id == exame.paciente_id)
     )
-    prontuario_id = session.scalar(
+    prontuario_id = await session.scalar(
         select(Prontuario).where(Prontuario.id == exame.prontuario_id)
     )
 
@@ -158,7 +159,7 @@ def update_exame(
             detail='Prontuário não encontrado.',
         )
 
-    db_exame = session.get(Exame, exame_id)
+    db_exame = await session.get(Exame, exame_id)
 
     if not db_exame:
         raise HTTPException(
@@ -180,14 +181,14 @@ def update_exame(
     db_exame.observacao = exame.observacao
     db_exame.status = exame.status
 
-    session.commit()
-    session.refresh(db_exame)
+    await session.commit()
+    await session.refresh(db_exame)
     return db_exame
 
 
 @router.delete('/{exame_id}')
-def delete_exame(exame_id: int, session: Session, current_user: CurrentUser):
-    db_exame = session.get(Exame, exame_id)
+async def delete_exame(exame_id: int, session: Session, current_user: CurrentUser):
+    db_exame = await session.get(Exame, exame_id)
 
     if not db_exame:
         raise HTTPException(
@@ -204,7 +205,7 @@ def delete_exame(exame_id: int, session: Session, current_user: CurrentUser):
             detail='Você não tem permissão para deletar este exame',
         )
 
-    session.delete(db_exame)
-    session.commit()
+    await session.delete(db_exame)
+    await session.commit()
 
     return {'message': 'Exame deletado com sucesso.'}

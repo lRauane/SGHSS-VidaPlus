@@ -1,10 +1,12 @@
 from http import HTTPStatus
+import pytest
 
 from vidaplus.schemas.profissional_schema import ProfissionalUserPublic
 
 
-def test_create_profissionais(client, token_admin):
-    response = client.post(
+@pytest.mark.asyncio
+async def test_create_profissionais(client, token_admin):
+    response = await client.post(
         '/profissionais/',
         json={
             'nome': 'Maria Oliveira',
@@ -38,31 +40,35 @@ def test_create_profissionais(client, token_admin):
     }
 
 
-def test_read_profissionais(client, token_admin):
-    response = client.get('/profissionais/', headers={'Authorization': f'Bearer {token_admin}'})
+@pytest.mark.asyncio
+async def test_read_profissionais(client, token_admin):
+    response = await client.get('/profissionais/', headers={'Authorization': f'Bearer {token_admin}'})
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'profissionais': []}
 
 
-def test_read_profissionais_with_profissionais(client, profissional_user, token_admin):
+@pytest.mark.asyncio
+async def test_read_profissionais_with_profissionais(client, profissional_user, token_admin):
     user_schema = ProfissionalUserPublic.model_validate(
         profissional_user
     ).model_dump(mode='json')
 
-    response = client.get('/profissionais/', headers={'Authorization': f'Bearer {token_admin}'})
+    response = await client.get('/profissionais/', headers={'Authorization': f'Bearer {token_admin}'})
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'profissionais': [user_schema]}
 
 
-def test_get_profissional_not_found(client, token_profissional):
-    response = client.get('/profissionais/999', headers={'Authorization': f'Bearer {token_profissional}'})
+@pytest.mark.asyncio
+async def test_get_profissional_not_found(client, token_profissional):
+    response = await client.get('/profissionais/999', headers={'Authorization': f'Bearer {token_profissional}'})
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'User not found'}
 
 
-def test_update_integrity_error(client, profissional_user, token_profissional, token_admin):
-    client.post(
+@pytest.mark.asyncio
+async def test_update_integrity_error(client, profissional_user, token_profissional, token_admin):
+    await client.post(
         '/profissionais/',
         json={
             'nome': 'Fausto Example',
@@ -80,7 +86,7 @@ def test_update_integrity_error(client, profissional_user, token_profissional, t
         headers={'Authorization': f'Bearer {token_admin}'},
     )
 
-    response_update = client.put(
+    response_update = await client.put(
         f'/profissionais/{profissional_user.id}',
         headers={'Authorization': f'Bearer {token_profissional}'},
         json={
@@ -105,8 +111,9 @@ def test_update_integrity_error(client, profissional_user, token_profissional, t
 
 
 # esse teste precisa ser corrigido
-def test_update_user_not_found(client, token_profissional):
-    response = client.put(
+@pytest.mark.asyncio
+async def test_update_user_not_found(client, token_profissional):
+    response = await client.put(
         '/profissionais/999',
         headers={'Authorization': f'Bearer {token_profissional}'},
         json={
@@ -129,8 +136,9 @@ def test_update_user_not_found(client, token_profissional):
     }
 
 
-def test_delete_user(client, profissional_user, token_profissional):
-    response = client.delete(
+@pytest.mark.asyncio
+async def test_delete_user(client, profissional_user, token_profissional):
+    response = await client.delete(
         f'/profissionais/{profissional_user.id}',
         headers={'Authorization': f'Bearer {token_profissional}'},
     )
@@ -139,8 +147,9 @@ def test_delete_user(client, profissional_user, token_profissional):
 
 
 # esse teste precisa ser corrigido
-def test_delete_user_not_found(client, token_profissional):
-    response = client.delete(
+@pytest.mark.asyncio
+async def test_delete_user_not_found(client, token_profissional):
+    response = await client.delete(
         '/profissionais/999',
         headers={'Authorization': f'Bearer {token_profissional}'},
     )

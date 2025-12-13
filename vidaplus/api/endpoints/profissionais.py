@@ -4,11 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
-from vidaplus.security import (
-    get_current_user,
-    get_password_hash,
-)
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from vidaplus.database import get_session
 from vidaplus.models.models import ProfissionalUser
@@ -19,18 +15,22 @@ from vidaplus.schemas.profissional_schema import (
     ProfissionalUserSchema,
     UserList,
 )
+from vidaplus.security import (
+    get_current_user,
+    get_password_hash,
+)
 from vidaplus.utils.general import UserRole
 
 router = APIRouter()
-Session = Annotated[Session, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[ProfissionalUser, Depends(get_current_user)]
 
 
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=ProfissionalUserPublic
 )
-def create_user(user: ProfissionalUserSchema, session: Session, current_user: CurrentUser):
-    db_user = session.scalar(
+async def create_user(user: ProfissionalUserSchema, session: Session, current_user: CurrentUser):
+    db_user = await session.scalar(
         select(ProfissionalUser).where(
             (ProfissionalUser.email == user.email)
             | (ProfissionalUser.crmCoren == user.crmCoren)
@@ -72,20 +72,21 @@ def create_user(user: ProfissionalUserSchema, session: Session, current_user: Cu
     )
 
     session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
+    await session.commit()
+    await session.refresh(db_user)
 
     return db_user
 
 
 @router.get('/', response_model=UserList)
-def get_users(session: Session, filter_users: Annotated[FilterPage, Query()], current_user: CurrentUser):
-    profissionais = session.scalars(
+async def get_users(session: Session, filter_users: Annotated[FilterPage, Query()], current_user: CurrentUser):
+    profissionais = await session.scalars(
         select(ProfissionalUser)
         .where(ProfissionalUser.tipo == UserRole.PROFISSIONAL)
         .offset(filter_users.offset)
         .limit(filter_users.limit)
-    ).all()
+    )
+    profissionais = profissionais.all()
 
     if not current_user.is_superuser:
         profissionais = [
@@ -96,8 +97,8 @@ def get_users(session: Session, filter_users: Annotated[FilterPage, Query()], cu
 
 
 @router.get('/{user_id}', response_model=ProfissionalUserPublic)
-def get_user(user_id: int, session: Session, current_user: CurrentUser):
-    user = session.get(ProfissionalUser, user_id)
+async def get_user(user_id: int, session: Session, current_user: CurrentUser):
+    user = await session.get(ProfissionalUser, user_id)
     if not user:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail='User not found'
@@ -113,7 +114,7 @@ def get_user(user_id: int, session: Session, current_user: CurrentUser):
 
 
 @router.put('/{user_id}', response_model=ProfissionalUserPublic)
-def update_user(
+async def update_user(
     user_id: int,
     user: ProfissionalUserSchema,
     session: Session,
@@ -125,7 +126,7 @@ def update_user(
             detail='Você não tem permissão para atualizar este usuário',
         )
 
-    user_to_update = session.get(ProfissionalUser, user_id)
+    user_to_update = await session.get(ProfissionalUser, user_id)
     if not user_to_update:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail='Usuário não encontrado'
@@ -144,8 +145,8 @@ def update_user(
         user_to_update.is_active = user.is_active
         user_to_update.is_superuser = user.is_superuser
 
-        session.commit()
-        session.refresh(user_to_update)
+        await session.commit()
+        await session.refresh(user_to_update)
 
         return user_to_update
     except IntegrityError:
@@ -156,21 +157,21 @@ def update_user(
 
 
 @router.delete('/{user_id}', response_model=Message)
-def delete_user(user_id: int, session: Session, current_user: CurrentUser):
+async def delete_user(user_id: int, session: Session, current_user: CurrentUser):
     if not current_user.is_superuser and current_user.id != user_id:
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN,
             detail='Você não tem permissão para deletar este usuário',
         )
 
-    user_to_delete = session.get(ProfissionalUser, user_id)
+    user_to_delete = await session.get(ProfissionalUser, user_id)
     if not user_to_delete:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
             detail='Usuário não encontrado',
         )
 
-    session.delete(user_to_delete)
-    session.commit()
+    await session.delete(user_to_delete)
+    await session.commit()
 
     return {'message': 'User deleted'}

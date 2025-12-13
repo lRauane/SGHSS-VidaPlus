@@ -1,12 +1,14 @@
 from dataclasses import asdict
 
 from sqlalchemy import select
+import pytest
 
 from vidaplus.models.models import AdminUser, PacienteUser, ProfissionalUser
 from vidaplus.utils.general import Especialidade, HorarioAtendimento, UserRole
 
 
-def test_admin_user(session, mock_db_time):
+@pytest.mark.asyncio
+async def test_admin_user(session, mock_db_time):
     with mock_db_time(model=AdminUser) as time:
         new_user = AdminUser(
             nome='Admin',
@@ -19,9 +21,9 @@ def test_admin_user(session, mock_db_time):
         )
 
         session.add(new_user)
-        session.commit()
+        await session.commit()
 
-    user = session.scalar(select(AdminUser).where(AdminUser.nome == 'Admin'))
+    user = await session.scalar(select(AdminUser).where(AdminUser.nome == 'Admin'))
 
     assert asdict(user) == {
         'id': 1,
@@ -36,7 +38,8 @@ def test_admin_user(session, mock_db_time):
     }
 
 
-def test_paciente_user(session, mock_db_time, mock_db_date):
+@pytest.mark.asyncio
+async def test_paciente_user(session, mock_db_time, mock_db_date):
     with mock_db_time(model=PacienteUser) as time:
         with mock_db_date(model=PacienteUser) as date:
             new_user = PacienteUser(
@@ -58,9 +61,9 @@ def test_paciente_user(session, mock_db_time, mock_db_date):
                 cep='12345678',
             )
             session.add(new_user)
-            session.commit()
+            await session.commit()
 
-    user = session.scalar(
+    user = await session.scalar(
         select(PacienteUser).where(PacienteUser.nome == 'João')
     )
 
@@ -86,7 +89,8 @@ def test_paciente_user(session, mock_db_time, mock_db_date):
     }
 
 
-def test_profissional_user(session, mock_db_time):
+@pytest.mark.asyncio
+async def test_profissional_user(session, mock_db_time):
     with mock_db_time(model=ProfissionalUser) as time:
         new_user = ProfissionalUser(
             nome='Maria',
@@ -102,9 +106,9 @@ def test_profissional_user(session, mock_db_time):
             biografia='Médica com 10 anos de experiência',
         )
         session.add(new_user)
-        session.commit()
+        await session.commit()
 
-    user = session.scalar(
+    user = await session.scalar(
         select(ProfissionalUser).where(ProfissionalUser.nome == 'Maria')
     )
 

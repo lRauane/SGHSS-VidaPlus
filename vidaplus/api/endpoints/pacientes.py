@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from vidaplus.database import get_session
 from vidaplus.models.models import PacienteUser
@@ -22,14 +22,14 @@ from vidaplus.security import (
 from vidaplus.utils.general import UserRole
 
 router = APIRouter()
-Session = Annotated[Session, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[PacienteUser, Depends(get_current_user)]
 
 
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=PacienteUserPublic
 )
-def create_user(user: PacienteUserSchema, session: Session, current_user: CurrentUser):
+async def create_user(user: PacienteUserSchema, session: Session, current_user: CurrentUser):
     
     if not current_user.is_superuser:
         raise HTTPException(
@@ -37,7 +37,7 @@ def create_user(user: PacienteUserSchema, session: Session, current_user: Curren
             detail='Apenas usuários com permissão de administrador podem criar pacientes.',
         )
     
-    db_user = session.scalar(
+    db_user = await session.scalar(
         select(PacienteUser).where(
             (PacienteUser.email == user.email) | (PacienteUser.cpf == user.cpf)
         )
@@ -77,20 +77,21 @@ def create_user(user: PacienteUserSchema, session: Session, current_user: Curren
     )
 
     session.add(db_user)
-    session.commit()
-    session.refresh(db_user)
+    await session.commit()
+    await session.refresh(db_user)
 
     return db_user
 
 
 @router.get('/', response_model=UserList)
-def get_users(session: Session, filter_users: Annotated[FilterPage, Query()], current_user: CurrentUser):
-    pacientes = session.scalars(
+async def get_users(session: Session, filter_users: Annotated[FilterPage, Query()], current_user: CurrentUser):
+    pacientes = await session.scalars(
         select(PacienteUser)
         .where(PacienteUser.tipo == UserRole.PACIENTE)
         .offset(filter_users.offset)
         .limit(filter_users.limit)
-    ).all()
+    )
+    pacientes = pacientes.all()
 
     if not current_user.is_superuser:
         pacientes = [
@@ -101,8 +102,8 @@ def get_users(session: Session, filter_users: Annotated[FilterPage, Query()], cu
 
 
 @router.get('/{user_id}', response_model=PacienteUserPublic)
-def get_user(user_id: int, session: Session, current_user: CurrentUser):
-    user = session.get(PacienteUser, user_id)
+async def get_user(user_id: int, session: Session, current_user: CurrentUser):
+    user = await session.get(PacienteUser, user_id)
     if not user:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail='User not found'
@@ -118,7 +119,7 @@ def get_user(user_id: int, session: Session, current_user: CurrentUser):
 
 
 @router.put('/{user_id}', response_model=PacienteUserPublic)
-def update_user(
+async def update_user(
     user_id: int,
     user: PacienteUserSchema,
     session: Session,
@@ -130,7 +131,7 @@ def update_user(
             detail='Você não tem permissão para atualizar este usuário',
         )
 
-    user_to_update = session.get(PacienteUser, user_id)
+    user_to_update = await session.get(PacienteUser, user_id)
     if not user_to_update:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND, detail='Usuário não encontrado'
@@ -154,8 +155,8 @@ def update_user(
         user_to_update.is_active = user.is_active
         user_to_update.is_superuser = user.is_superuser
 
-        session.commit()
-        session.refresh(user_to_update)
+        await session.commit()
+        await session.refresh(user_to_update)
 
         return user_to_update
     except IntegrityError:
@@ -166,21 +167,21 @@ def update_user(
 
 
 @router.delete('/{user_id}', response_model=Message)
-def delete_user(user_id: int, session: Session, current_user: CurrentUser):
+async def delete_user(user_id: int, session: Session, current_user: CurrentUser):
     if not current_user.is_superuser and current_user.id != user_id:
         raise HTTPException(
             status_code=HTTPStatus.FORBIDDEN,
             detail='Você não tem permissão para deletar este usuário',
         )
 
-    user_to_delete = session.get(PacienteUser, user_id)
+    user_to_delete = await session.get(PacienteUser, user_id)
     if not user_to_delete:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
             detail='Usuário não encontrado',
         )
 
-    session.delete(user_to_delete)
-    session.commit()
+    await session.delete(user_to_delete)
+    await session.commit()
 
     return {'message': 'User deleted'}

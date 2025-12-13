@@ -1,6 +1,6 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from vidaplus.models.models import Estoque, BaseUser
 from vidaplus.schemas.estoques_schema import (
     EstoqueSchema,
@@ -16,7 +16,7 @@ from vidaplus.database import get_session
 from vidaplus.schemas.schemas import FilterPage
 
 router = APIRouter()
-Session = Annotated[Session, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
 
 
@@ -25,12 +25,12 @@ CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
     status_code=HTTPStatus.CREATED,
     response_model=EstoqueSchemaPublic,
 )
-def create_estoque(
+async def create_estoque(
     estoque: EstoqueSchema,
     session: Session,
     current_user: CurrentUser,
 ):
-    db_estoque = session.scalar(
+    db_estoque = await session.scalar(
         select(Estoque).where(Estoque.nome == estoque.nome)
     )
 
@@ -54,8 +54,8 @@ def create_estoque(
         data_validade=estoque.data_validade,
     )
     session.add(db_estoque)
-    session.commit()
-    session.refresh(db_estoque)
+    await session.commit()
+    await session.refresh(db_estoque)
 
     return db_estoque
 
@@ -65,16 +65,17 @@ def create_estoque(
     status_code=HTTPStatus.OK,
     response_model=EstoqueList,
 )
-def list_estoques(
+async def list_estoques(
     session: Session,
     filter_leitos: Annotated[FilterPage, Query()],
     current_user: CurrentUser,
 ):
-    db_estoques = session.scalars(
+    db_estoques = await session.scalars(
         select(Estoque)
         .offset(filter_leitos.offset)
         .limit(filter_leitos.limit)
-    ).all()
+    )
+    db_estoques = db_estoques.all()
 
     if not current_user.is_superuser:
         raise HTTPException(
@@ -89,12 +90,12 @@ def list_estoques(
     '/{estoque_id}',
     response_model=EstoqueSchemaPublic,
 )
-def get_estoque(
+async def get_estoque(
     estoque_id: int,
     session: Session,
     current_user: CurrentUser,
 ):
-    db_estoque = session.get(Estoque, estoque_id)
+    db_estoque = await session.get(Estoque, estoque_id)
 
     if not db_estoque:
         raise HTTPException(
@@ -114,13 +115,13 @@ def get_estoque(
     '/{estoque_id}',
     response_model=EstoqueSchemaPublic,
 )
-def update_estoque(
+async def update_estoque(
     estoque_id: int,
     estoque: EstoqueSchema,
     session: Session,
     current_user: CurrentUser,
 ):
-    db_estoque = session.get(Estoque, estoque_id)
+    db_estoque = await session.get(Estoque, estoque_id)
 
     if not db_estoque:
         raise HTTPException(
@@ -140,7 +141,7 @@ def update_estoque(
     db_estoque.unidade = estoque.unidade
     db_estoque.data_validade = estoque.data_validade
 
-    session.commit()
-    session.refresh(db_estoque)
+    await session.commit()
+    await session.refresh(db_estoque)
 
     return db_estoque

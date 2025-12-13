@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from vidaplus.models.models import BaseUser
 from vidaplus.schemas.auth_schema import Token
@@ -16,17 +16,16 @@ from vidaplus.security import (
 )
 
 router = APIRouter()
-
-Session = Annotated[Session, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
 
 
-@router.post('/', response_model=Token)
-def login_for_access_token(
+@router.post('/token', response_model=Token)
+async def login_for_access_token(
     session: Session,
     form_data: OAuth2PasswordRequestForm = Depends(),
 ):
-    user = session.scalar(
+    user = await session.scalar(
         select(BaseUser).where(BaseUser.email == form_data.username)
     )
 

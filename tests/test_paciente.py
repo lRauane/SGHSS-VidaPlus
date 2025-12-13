@@ -1,10 +1,12 @@
 from http import HTTPStatus
+import pytest
 
 from vidaplus.schemas.paciente_schema import PacienteUserPublic
 
 
-def test_create_paciente(client, token_admin):
-    response = client.post(
+@pytest.mark.asyncio
+async def test_create_paciente(client, token_admin):
+    response = await client.post(
         '/pacientes/',
         json={
             'nome': 'Alice Silva',
@@ -48,32 +50,36 @@ def test_create_paciente(client, token_admin):
     }
 
 
-def test_read_paciente(client, token_admin):
-    response = client.get('/pacientes/', headers={'Authorization': f'Bearer {token_admin}'})
+@pytest.mark.asyncio
+async def test_read_paciente(client, token_admin):
+    response = await client.get('/pacientes/', headers={'Authorization': f'Bearer {token_admin}'})
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'pacientes': []}
 
 
-def test_read_pacientes_with_pacientes(client, paciente_user, token_admin):
+@pytest.mark.asyncio
+async def test_read_pacientes_with_pacientes(client, paciente_user, token_admin):
     user_schema = PacienteUserPublic.model_validate(paciente_user).model_dump(
         mode='json'
     )
 
-    response = client.get('/pacientes/', headers={'Authorization': f'Bearer {token_admin}'})
+    response = await client.get('/pacientes/', headers={'Authorization': f'Bearer {token_admin}'})
 
     assert response.status_code == HTTPStatus.OK
     assert response.json() == {'pacientes': [user_schema]}
 
 
-def test_get_paciente_not_found(client, token_pacient):
-    response = client.get('/pacientes/999', headers={'Authorization': f'Bearer {token_pacient}'})
+@pytest.mark.asyncio
+async def test_get_paciente_not_found(client, token_pacient):
+    response = await client.get('/pacientes/999', headers={'Authorization': f'Bearer {token_pacient}'})
     assert response.status_code == HTTPStatus.NOT_FOUND
     assert response.json() == {'detail': 'User not found'}
 
 
-def test_update_integrity_error(client, paciente_user, token_pacient, token_admin):
-    client.post(
-        '/pacientes',
+@pytest.mark.asyncio
+async def test_update_integrity_error(client, paciente_user, token_pacient, token_admin):
+    await client.post(
+        '/pacientes/',
         json={
             'nome': 'Fausto',
             'email': 'fausto@email.com',
@@ -95,7 +101,7 @@ def test_update_integrity_error(client, paciente_user, token_pacient, token_admi
         headers={'Authorization': f'Bearer {token_admin}'},
     )
 
-    response_update = client.put(
+    response_update = await client.put(
         f'/pacientes/{paciente_user.id}',
         headers={'Authorization': f'Bearer {token_pacient}'},
         json={
@@ -123,8 +129,9 @@ def test_update_integrity_error(client, paciente_user, token_pacient, token_admi
 
 
 # esse teste precisa ser corrigido
-def test_update_user_not_found(client, token_pacient):
-    response = client.put(
+@pytest.mark.asyncio
+async def test_update_user_not_found(client, token_pacient):
+    response = await client.put(
         '/pacientes/999',
         headers={'Authorization': f'Bearer {token_pacient}'},
         json={
@@ -153,8 +160,9 @@ def test_update_user_not_found(client, token_pacient):
     }
 
 
-def test_delete_user(client, paciente_user, token_pacient):
-    response = client.delete(
+@pytest.mark.asyncio
+async def test_delete_user(client, paciente_user, token_pacient):
+    response = await client.delete(
         f'/pacientes/{paciente_user.id}',
         headers={'Authorization': f'Bearer {token_pacient}'},
     )
@@ -163,8 +171,9 @@ def test_delete_user(client, paciente_user, token_pacient):
 
 
 # esse teste precisa ser corrigido
-def test_delete_user_wrong_user(client, token_pacient):
-    response = client.delete(
+@pytest.mark.asyncio
+async def test_delete_user_wrong_user(client, token_pacient):
+    response = await client.delete(
         '/pacientes/99',
         headers={'Authorization': f'Bearer {token_pacient}'},
     )

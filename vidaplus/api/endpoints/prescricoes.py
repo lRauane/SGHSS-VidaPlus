@@ -1,6 +1,6 @@
 from http import HTTPStatus
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import Annotated
 from vidaplus.database import get_session
@@ -22,25 +22,25 @@ from vidaplus.models.models import (
 )
 
 router = APIRouter()
-Session = Annotated[Session, Depends(get_session)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 CurrentUser = Annotated[BaseUser, Depends(get_current_user)]
 
 
 @router.post(
     '/', status_code=HTTPStatus.CREATED, response_model=PrescricaoSchemaPublic
 )
-def create_prescricao(
+async def create_prescricao(
     prescricao: PrescricaoSchema, session: Session, current_user: CurrentUser
 ):
-    paciente_id = session.scalar(
+    paciente_id = await session.scalar(
         select(PacienteUser).where(PacienteUser.id == prescricao.paciente_id)
     )
-    profissional_id = session.scalar(
+    profissional_id = await session.scalar(
         select(ProfissionalUser).where(
             ProfissionalUser.id == prescricao.profissional_id,
         )
     )
-    prontuario_id = session.scalar(
+    prontuario_id = await session.scalar(
         select(Prontuario).where(Prontuario.id == prescricao.prontuario_id)
     )
 
@@ -82,23 +82,24 @@ def create_prescricao(
     )
 
     session.add(db_prescricao)
-    session.commit()
-    session.refresh(db_prescricao)
+    await session.commit()
+    await session.refresh(db_prescricao)
     return db_prescricao
 
 
 @router.get('/', response_model=PrescricaoList)
-def get_prescricoes(
+async def get_prescricoes(
     session: Session,
     filter_prescricoes: Annotated[FilterPage, Query()],
     current_user: CurrentUser,
 ):
-    db_prescricoes = session.scalars(
+    db_prescricoes = await session.scalars(
         select(Prescricao)
         .order_by(Prescricao.data.desc())
         .offset(filter_prescricoes.offset)
         .limit(filter_prescricoes.limit)
-    ).all()
+    )
+    db_prescricoes = db_prescricoes.all()
 
     if not current_user.is_superuser:
         db_prescricoes = [
@@ -112,10 +113,10 @@ def get_prescricoes(
 
 
 @router.get('/{prescricao_id}', response_model=PrescricaoSchemaPublic)
-def get_prescricao(
+async def get_prescricao(
     prescricao_id: int, session: Session, current_user: CurrentUser
 ):
-    db_prescricao = session.get(Prescricao, prescricao_id)
+    db_prescricao = await session.get(Prescricao, prescricao_id)
     if not db_prescricao:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
@@ -136,28 +137,28 @@ def get_prescricao(
 
 # outros profissionais estão editando prescrições de outros profissionais, ajustar
 @router.put('/{prescricao_id}', response_model=PrescricaoSchemaPublic)
-def update_prescricao(
+async def update_prescricao(
     prescricao_id: int,
     prescricao: PrescricaoSchema,
     session: Session,
     current_user: CurrentUser,
 ):
-    db_prescricao = session.get(Prescricao, prescricao_id)
+    db_prescricao = await session.get(Prescricao, prescricao_id)
     if not db_prescricao:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
             detail='Prescrição não encontrada.',
         )
 
-    paciente_id = session.scalar(
+    paciente_id = await session.scalar(
         select(PacienteUser).where(PacienteUser.id == prescricao.paciente_id)
     )
-    profissional_id = session.scalar(
+    profissional_id = await session.scalar(
         select(ProfissionalUser).where(
             ProfissionalUser.id == prescricao.profissional_id,
         )
     )
-    prontuario_id = session.scalar(
+    prontuario_id = await session.scalar(
         select(Prontuario).where(Prontuario.id == prescricao.prontuario_id)
     )
 
@@ -196,17 +197,17 @@ def update_prescricao(
     db_prescricao.medicamentos = prescricao.medicamentos
     db_prescricao.observacao = prescricao.observacao
 
-    session.commit()
-    session.refresh(db_prescricao)
+    await session.commit()
+    await session.refresh(db_prescricao)
 
     return db_prescricao
 
 
 @router.delete('/{prescricao_id}')
-def delete_prescricao(
+async def delete_prescricao(
     prescricao_id: int, session: Session, current_user: CurrentUser
 ):
-    db_prescricao = session.get(Prescricao, prescricao_id)
+    db_prescricao = await session.get(Prescricao, prescricao_id)
     if not db_prescricao:
         raise HTTPException(
             status_code=HTTPStatus.NOT_FOUND,
@@ -222,6 +223,6 @@ def delete_prescricao(
             detail='Você não tem permissão para deletar esta prescrição',
         )
 
-    session.delete(db_prescricao)
-    session.commit()
+    await session.delete(db_prescricao)
+    await session.commit()
     return {'message': 'Prescrição excluída com sucesso.'}

@@ -1,8 +1,10 @@
 from http import HTTPStatus
+import pytest
 
 
-def test_get_token_paciente(client, paciente_user):
-    response = client.post(
+@pytest.mark.asyncio
+async def test_get_token_paciente(client, paciente_user):
+    response = await client.post(
         '/auth/token',
         data={
             'username': paciente_user.email,
@@ -16,8 +18,9 @@ def test_get_token_paciente(client, paciente_user):
     assert 'token_type' in token
 
 
-def test_get_token_profissional(client, profissional_user):
-    response = client.post(
+@pytest.mark.asyncio
+async def test_get_token_profissional(client, profissional_user):
+    response = await client.post(
         '/auth/token',
         data={
             'username': profissional_user.email,

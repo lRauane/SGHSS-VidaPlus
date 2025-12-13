@@ -2,10 +2,12 @@ from contextlib import contextmanager
 from datetime import date, datetime, time
 
 import pytest
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session
+import pytest_asyncio
+from httpx import AsyncClient, ASGITransport
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from sqlalchemy import event
 
 from vidaplus.app import app
 from vidaplus.database import get_session
@@ -20,31 +22,39 @@ from vidaplus.models.models import (
 from vidaplus.security import get_password_hash
 
 
-@pytest.fixture
-def client(session):
-    def get_session_override():
-        return session
-
-    with TestClient(app) as client:
-        app.dependency_overrides[get_session] = get_session_override
-        yield client
-
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def session():
-    engine = create_engine(
-        'sqlite:///:memory:',
+@pytest_asyncio.fixture
+async def session():
+    engine = create_async_engine(
+        'sqlite+aiosqlite:///:memory:',
         connect_args={'check_same_thread': False},
         poolclass=StaticPool,
     )
-    table_registry.metadata.create_all(engine)
+    
+    async with engine.begin() as conn:
+        await conn.run_sync(table_registry.metadata.create_all)
 
-    with Session(engine) as session:
+    async_session = sessionmaker(
+        engine, class_=AsyncSession, expire_on_commit=False
+    )
+    
+    async with async_session() as session:
         yield session
 
-    table_registry.metadata.drop_all(engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(table_registry.metadata.drop_all)
+
+
+@pytest_asyncio.fixture
+async def client(session):
+    async def get_session_override():
+        yield session
+
+    app.dependency_overrides[get_session] = get_session_override
+    
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        yield client
+
+    app.dependency_overrides.clear()
 
 
 @contextmanager
@@ -54,19 +64,6 @@ def _mock_db_time(*, model, time=datetime(2024, 1, 1)):
             target.created_at = time
         if hasattr(target, 'updated_at'):
             target.updated_at = time
-
-    event.listen(model, 'before_insert', fake_time_handler)
-
-    yield time
-
-    event.remove(model, 'before_insert', fake_time_handler)
-
-
-@contextmanager
-def _mock_db_time(*, model, time=datetime(2024, 1, 1)):
-    def fake_time_handler(mapper, connection, target):
-        if hasattr(target, 'created_at'):
-            target.created_at = time
 
     event.listen(model, 'before_insert', fake_time_handler)
 
@@ -98,8 +95,8 @@ def mock_db_date():
     return _mock_db_date
 
 
-@pytest.fixture
-def paciente_user(session, mock_db_date):
+@pytest_asyncio.fixture
+async def paciente_user(session, mock_db_date):
     with mock_db_date(model=PacienteUser) as date:
         senha = 'maria123'
         user = PacienteUser(
@@ -121,18 +118,16 @@ def paciente_user(session, mock_db_date):
             cep='87654321',
         )
         session.add(user)
-        session.commit()
-        session.refresh(user)
+        await session.commit()
+        await session.refresh(user)
 
         user.clean_password = senha
 
         return user
 
-    return user
 
-
-@pytest.fixture
-def profissional_user(session):
+@pytest_asyncio.fixture
+async def profissional_user(session):
     senha = 'carlos123'
     user = ProfissionalUser(
         nome='Carlos',
@@ -149,16 +144,16 @@ def profissional_user(session):
     )
 
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
 
     user.clean_password = senha
 
     return user
 
 
-@pytest.fixture
-def admin_user(session):
+@pytest_asyncio.fixture
+async def admin_user(session):
     senha = 'admin123'
     user = AdminUser(
         nome='Admin',
@@ -171,16 +166,16 @@ def admin_user(session):
     )
 
     session.add(user)
-    session.commit()
-    session.refresh(user)
+    await session.commit()
+    await session.refresh(user)
 
     user.clean_password = senha
     return user
 
 
-@pytest.fixture
-def token_pacient(client, paciente_user):
-    response = client.post(
+@pytest_asyncio.fixture
+async def token_pacient(client, paciente_user):
+    response = await client.post(
         '/auth/token',
         data={
             'username': paciente_user.email,
@@ -190,9 +185,9 @@ def token_pacient(client, paciente_user):
     return response.json()['access_token']
 
 
-@pytest.fixture
-def token_profissional(client, profissional_user):
-    response = client.post(
+@pytest_asyncio.fixture
+async def token_profissional(client, profissional_user):
+    response = await client.post(
         '/auth/token',
         data={
             'username': profissional_user.email,
@@ -202,9 +197,9 @@ def token_profissional(client, profissional_user):
     return response.json()['access_token']
 
 
-@pytest.fixture
-def token_admin(client, admin_user):
-    response = client.post(
+@pytest_asyncio.fixture
+async def token_admin(client, admin_user):
+    response = await client.post(
         '/auth/token',
         data={
             'username': admin_user.email,
@@ -214,20 +209,20 @@ def token_admin(client, admin_user):
     return response.json()['access_token']
 
 
-@pytest.fixture
-def prontuario_user(paciente_user, session):
+@pytest_asyncio.fixture
+async def prontuario_user(paciente_user, session):
     prontuario = Prontuario(
         paciente_id=paciente_user.id,
     )
 
     session.add(prontuario)
-    session.commit()
-    session.refresh(prontuario)
+    await session.commit()
+    await session.refresh(prontuario)
     return prontuario
     
 
-@pytest.fixture
-def nova_consulta(paciente_user, profissional_user, prontuario_user, session):
+@pytest_asyncio.fixture
+async def nova_consulta(paciente_user, profissional_user, prontuario_user, session):
     consulta = Consulta(
         data=date(2025, 4, 28),
         hora=time(14, 0),
@@ -241,7 +236,7 @@ def nova_consulta(paciente_user, profissional_user, prontuario_user, session):
     )
 
     session.add(consulta)
-    session.commit()
-    session.refresh(consulta)
+    await session.commit()
+    await session.refresh(consulta)
 
     return consulta

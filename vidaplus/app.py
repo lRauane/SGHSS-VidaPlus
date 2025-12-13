@@ -1,7 +1,13 @@
 from fastapi import FastAPI
+<<<<<<< Updated upstream
 # from vidaplus.logging_config import setup_logging
 import logging
 
+=======
+from vidaplus.logging_config import setup_logging
+import logging
+import time
+>>>>>>> Stashed changes
 from vidaplus.api.endpoints import (
     auth,
     pacientes,
@@ -15,7 +21,11 @@ from vidaplus.api.endpoints import (
 )
 
 logger = logging.getLogger(__name__)
+<<<<<<< Updated upstream
 # setup_logging()
+=======
+setup_logging()
+>>>>>>> Stashed changes
 
 app = FastAPI(
     title='VidaPlus API',
@@ -24,7 +34,11 @@ app = FastAPI(
     openapi_url='/api/v1/openapi.json',
 )
 
+<<<<<<< Updated upstream
 # midleware de loggins
+=======
+
+>>>>>>> Stashed changes
 # @app.middleware('http')
 # async def log_requests(request, call_next):
 #     start_time = time.time()
@@ -60,4 +74,4 @@ app.include_router(
 )
 app.include_router(leitos.router, prefix='/leitos', tags=['Leitos'])
 app.include_router(estoque.router, prefix='/estoque', tags=['Estoque'])
-app.include_router(auth.router, prefix='/auth/token', tags=['Tokens'])
+app.include_router(auth.router, prefix='/auth', tags=['Tokens'])
