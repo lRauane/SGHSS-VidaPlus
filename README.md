@@ -1,5 +1,4 @@
 <h1 align="center">API VidaPlus - Sistema de gestão hospitalar</h1>
-
 ## 📑 Tabela de conteúdos
 
 - [Sobre o projeto](#sobre-o-projeto)
